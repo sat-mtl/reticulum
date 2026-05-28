@@ -80,15 +80,19 @@ defmodule Ret.GLTFUtils do
 
     trimmed_old_json = String.trim_trailing(old_json, @glb_padding)
     new_json = String.replace(trimmed_old_json, search_string, replacement_string)
-    new_json_length = ceil(String.length(new_json) / @glb_byte_boundary) * @glb_byte_boundary
-    new_padded_json = String.pad_trailing(new_json, new_json_length, @glb_padding)
-    new_glb_length = old_glb_length - old_json_length + new_json_length
+    # we use byte_size() on the json instead of String.length to make sure we get the right
+    # padding if there are multi-byte characters
+    new_json_padded_bin_length = ceil(byte_size(new_json) / @glb_byte_boundary) * @glb_byte_boundary
+    # this is exactly how many bytes we need to add to the string, regardless of multi-byte characters.
+    padding = new_json_padded_bin_length - byte_size(new_json)
+    new_padded_json = String.pad_trailing(new_json, String.length(new_json) + padding , @glb_padding)
+    new_glb_length = old_glb_length - old_json_length + new_json_padded_bin_length
 
     new_bytes =
       @glb_header <>
         @glb_version <>
         <<new_glb_length::little-integer-32>> <>
-        <<new_json_length::little-integer-32>> <>
+        <<new_json_padded_bin_length::little-integer-32>> <>
         @glb_json_type <>
         new_padded_json
 
